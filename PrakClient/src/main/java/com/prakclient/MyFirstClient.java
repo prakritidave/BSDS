@@ -1,5 +1,7 @@
 package com.prakclient;
 
+import org.json.JSONObject;
+
 import javax.ws.rs.*;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.MediaType;
@@ -11,7 +13,7 @@ public class MyFirstClient {
   private int countRequests = 0;
 
   private synchronized void incrementRequest(){
-    countRequests+=1;
+    countRequests= countRequests+1;
   }
 
   public synchronized int getCountRequests(){
@@ -23,15 +25,16 @@ public class MyFirstClient {
 
 //client.target("http://ec2-54-187-12-74.us-west-2.compute.amazonaws.com:8080/AnotherProject_war/rest/myfirstapp");
 
-  private WebTarget webTarget = client.target("https://2b2hnsrqp6.execute-api.us-west-2.amazonaws.com/prakstage");
+  private WebTarget webTarget = client.target("https://ugrkcch2xj.execute-api.us-west-2.amazonaws.com/mystage/myresource");
 
   public Response postText(Object requestEntity) throws ClientErrorException {
 
     this.incrementRequest();
-    System.out.println("Req entity "+requestEntity.toString());
-    System.out.println(getCountRequests());
-    return webTarget.request(MediaType.APPLICATION_JSON)
-        .post(Entity.entity(requestEntity, MediaType.APPLICATION_JSON), Response.class);
+
+        return webTarget.request(MediaType.TEXT_PLAIN)
+      .post(javax.ws.rs.client.Entity.entity(requestEntity, MediaType.TEXT_PLAIN),
+     Response.class);
+
   }
 
   //    return webTarget.request(MediaType.APPLICATION_JSON)
@@ -43,7 +46,7 @@ public class MyFirstClient {
 
     this.incrementRequest();
 
-    return webTarget.request(javax.ws.rs.core.MediaType.TEXT_PLAIN).get(String.class);
+    return webTarget.request(MediaType.TEXT_PLAIN).get(String.class);
   }
 
 }

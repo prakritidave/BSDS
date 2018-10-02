@@ -6,9 +6,6 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import jdk.nashorn.internal.parser.JSONParser;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -33,29 +30,28 @@ public class PrakMain {
     meanLatency = totalLatency/totalRequests;
   }
 
+  private static synchronized void incrementSuccessfulRequest(){
+    successfulRequests+=1;
+  }
+
+  private static synchronized void addLatency(Long timeDiff){
+
+    double timeDiffMilliSeconds = (timeDiff/1000000.0);
+    storeLatency.add(timeDiffMilliSeconds);
+    totalLatency = totalLatency + timeDiffMilliSeconds;
+  }
+
   private static void computeLatencyMedian(){
     int len = storeLatency.size();
     if(len == 0)return;
 
     if(len % 2 == 0){
       double temp = storeLatency.get((len/2)-1) + storeLatency.get(len/2);
-      medianLatency = (double) (temp/2);
+      medianLatency = (temp/2);
     }else{
-      medianLatency = (double)(storeLatency.get(len/2));
+      medianLatency = (storeLatency.get(len/2));
     }
   }
-
-  private static synchronized void incrementSuccessfulRequest(){
-    successfulRequests+=1;
-  }
-
-  private static synchronized void addLatency(Long timeDiff){
-    double timeDiffMilliSeconds = (timeDiff/1000000.0);
-
-    storeLatency.add(timeDiffMilliSeconds);
-    totalLatency = totalLatency + timeDiffMilliSeconds;
-  }
-
 
   private static void PerformTesting(int numofthreads, final int iterations,final MyFirstClient firstClient, String phase){
 
@@ -66,84 +62,49 @@ public class PrakMain {
       public void run() {
 
         for(int i=0; i<iterations; i++){
-
           String status ="";
           String entityString = "";
-          JSONObject requestjsonObject = null;
-          JSONObject responsejsonObject = null;
-          String responseString="";
 
 //          System.out.println(Thread.currentThread().getName() + " " + i);
-
           long beforeGet = System.nanoTime();
           status = firstClient.getStatus();
           long afterGet = System.nanoTime();
-
-          if(status.length() > 0){
+//          System.out.println(status);
+//          response is "alive" thus length is 7
+          if(status.length() == 7){
             incrementSuccessfulRequest();
           }
-
-          addLatency(afterGet-beforeGet);
-
-          System.out.println(status);
-
-          requestjsonObject = new JSONObject();
-
-          try{
-            requestjsonObject.put("key", "I am batman");
-          }catch (Exception e){
-            e.printStackTrace();
-          }
-
+          //POST
           long beforePost = System.nanoTime();
-          Response response = firstClient.postText(requestjsonObject);
+          Response response = firstClient.postText("\"prakriti\"");
           long afterPost = System.nanoTime();
 
-          addLatency(afterPost - beforePost);
-
           entityString = response.readEntity(String.class);
-          System.out.println(entityString);
+          response.close();
+//          System.out.println(entityString);
 
-
-          try{
-            responsejsonObject = new JSONObject(entityString);
-          }catch (Exception e){
-            e.printStackTrace();
-          }
-
-          try{
-            if(requestjsonObject != null){
-              responseString = responsejsonObject.getString("key");
-            }
-          }catch (Exception e){
-            e.printStackTrace();
-          }
-
-          if(responseString.length() > 0){
+          if(entityString.equals("8") ){
             incrementSuccessfulRequest();
           }
-          System.out.println(responseString);
 
-          response.close();
+          //store the latencies
+          addLatency(afterGet-beforeGet);
+          addLatency(afterPost - beforePost);
         }
       }
-
     };
 
     if(phase.equals("Warmup")){
       System.out.println("Client starting..... Time: " + (System.nanoTime())/1000000000.0 + " seconds \n");
     }
 
-
     System.out.println( phase + " phase: All threads running ....\n");
 
     long phaseStart = System.nanoTime();
-//    System.out.println(phaseStart);
 
     for(int i=0; i<numofthreads; i++){
       executorService.submit(runPhase);
     }
-
     executorService.shutdown();
 
     try{
@@ -153,7 +114,6 @@ public class PrakMain {
     }
 
     long phaseEnd = System.nanoTime();
-//    System.out.println( phase + " phase ended: "+ phaseEnd);
 
     if(phase.equals("Warmup")){
       startTime = phaseStart;
@@ -164,7 +124,6 @@ public class PrakMain {
     }
 
     double phaseTime = ((phaseEnd-phaseStart)/1000000000.0);
-
     System.out.println( phase + " phase complete: "+ phaseTime + " seconds");
 
   }
@@ -195,7 +154,7 @@ public class PrakMain {
     int warmupthreads = (int)(0.1*numOfThreads);
     PerformTesting(warmupthreads, iterations, firstClient, "Warmup");
 
-    //--------LOADING PHASE---------------
+//    --------LOADING PHASE---------------
     int loadingThreads = (int)(numOfThreads*0.5);
     PerformTesting(loadingThreads, iterations, firstClient, "Loading");
 
@@ -206,8 +165,7 @@ public class PrakMain {
     int coolDownThreads = (int)(0.25*numOfThreads);
     PerformTesting(coolDownThreads, iterations, firstClient, "Cooldown");
 
-    System.out.println("all phases done");
-    System.out.println("============================================= \n");
+    System.out.println("================================================== \n");
 
     totalRequests = firstClient.getCountRequests();
     System.out.println("Total number of requests sent:" + totalRequests);
@@ -225,8 +183,8 @@ public class PrakMain {
 
     computeLatencyMedian();
     System.out.println("Median Latency: "+ medianLatency + " milliseconds \n");
-    computeMeanLatency();
 
+    computeMeanLatency();
     System.out.println("Mean Latency: " + meanLatency + " milliseconds \n");
 
     double percentile99th = 0.0;
@@ -244,12 +202,6 @@ public class PrakMain {
 
     System.out.println("95th percentile latency:  " + percentile95th + " milliseconds \n");
     System.out.println("99th percentile latency:  "+ percentile99th + " milliseconds \n" );
-
-/*  System.out.println(firstClient.getStatus());
-    Response response = firstClient.postText("I am Batman");
-    System.out.println(response.getStatus());
-    System.out.println(response.getEntity().toString());
-    System.out.println(response.readEntity(String.class));*/
 
   }
 
