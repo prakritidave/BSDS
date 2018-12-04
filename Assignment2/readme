@@ -1,0 +1,5 @@
+AnotherProject: is my server
+PrakClient: is the client
+localClientRun: are the stats for running the client on local machine upto 128 threads
+ClientOnEc2: stats when client was executed on ec2 instance
+Assignment2 report
